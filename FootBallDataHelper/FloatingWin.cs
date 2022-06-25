@@ -6,10 +6,9 @@ using System.Threading.Tasks;
 
 namespace FootBallDataHelper
 {
-    public class FlaotingWin
+    public class FloatingWin
     {
-        public bool doubt { get; set; }
-        public int detailId { get; set; }
+        public bool doubt { get; set; }       
         //队名
         public string home { get; set; }
         public string away { get; set; }
@@ -17,27 +16,28 @@ namespace FootBallDataHelper
         public string half_score { get; set; }
         public string score { get; set; }
         //比赛事件
-        public List<string> SoccerEvent { get; set; }
+        public List<SoccerEvent> SoccerEvent { get; set; }
         //技术统计
-
+        public TechnicalStatistic technicalStatistic { get; set; }
     }
 
     public class SoccerEvent
     {
-        Position position { get; set; }
-        int time { get; set; }
-        EventId eventId { get; set; }
-        string player1 { get; set; }
-        string player2 { get; set; }
+        public Position position { get; set; }
+        public int time { get; set; }
+        public EventId eventId { get; set; }
+        public string player1 { get; set; }
+        public string player2 { get; set; }
+        public bool haveEvent = false;
     }
 
-    enum Position
+    public enum Position
     {
         middle,
         left,
         right,
     }
-    enum EventId
+    public enum EventId
     {
         middle, //中场休息
         over,   //比赛结束

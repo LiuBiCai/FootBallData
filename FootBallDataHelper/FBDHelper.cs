@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace FootBallDataHelper
 {
@@ -59,9 +60,71 @@ namespace FootBallDataHelper
             return false;
         }
 
-        #region 数据解析
-        
+        #region 浮窗数据解析
+        public Tuple<bool,string,FloatingWin> GetData(int row)
+        {
+            var data = new FloatingWin();
+            var window = spider.FindElement(By.ClassName("tooltip-analysis"));
 
+
+            //获取队名
+            var names = window.FindElements(By.ClassName("name"));
+            if(names.Count>1)
+            {
+                data.home = names[0].Text;
+                data.away = names[1].Text;
+            }
+
+
+            return new Tuple<bool, FloatingWin>(false, "unknown",data);
+        }
+
+        public List<SoccerEvent> GetSoccerEvents(WebElement window)
+        {
+            var events = new List<SoccerEvent>();
+            
+            var eventList= window.FindElement(By.ClassName("eventlist"));
+            var rows= eventList.FindElements(By.ClassName("row"));
+            foreach (var row in rows)
+            {
+                var soccerEvent = new SoccerEvent();
+
+                //比赛状态行
+                if (IsElementPresent(By.ClassName("cte"),row))
+                {
+                    soccerEvent.position = Position.middle;
+                    var match = row.FindElement(By.ClassName("cte")).Text;
+                    Console.WriteLine("cte:" +match);
+                    if(match.Contains("比赛结束"))
+                    {
+                        soccerEvent.eventId = EventId.over;
+                    }
+                    else if(match.Contains("中场休息"))
+                    {
+                        soccerEvent.eventId = EventId.middle;
+                    }
+                    else
+                    {
+                        MessageBox.Show("未知cte " + match);
+                    }
+                    continue;
+                }
+                //比赛事件行
+                var left = row.FindElement(By.ClassName("left"));
+                var right = row.FindElement(By.ClassName("right"));
+                var center=left.FindElement(By.ClassName("center")).Text;
+                Console.WriteLine("center " + center);
+                int time = 0;
+                if(!int.TryParse(center,out time))
+                {
+
+                }
+
+                    
+            }
+
+            return events;
+        }
 
         #endregion
 
@@ -90,6 +153,34 @@ namespace FootBallDataHelper
             }
             return false;
         }
+
+        private bool IsElementPresent(By by)
+        {
+            try
+            {
+                var result = spider.FindElement(by);
+                return true;
+            }
+            catch (NoSuchElementException)
+            {
+                return false;
+
+            }           
+        }
+        private bool IsElementPresent(By by, IWebElement webElement)
+        {
+            try
+            {
+                var result = webElement.FindElement(by);
+                return true;
+            }
+            catch (NoSuchElementException)
+            {
+                return false;
+
+            }
+        }
+
         private bool IsElementPresentWithTime(By by,IWebElement webElement ,int timeLimit = 2)
         {
             DateTime start = DateTime.Now;
