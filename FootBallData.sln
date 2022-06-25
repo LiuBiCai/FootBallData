@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32526.322
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FootBallData", "FootBallData\FootBallData.csproj", "{75B0B4AC-1578-4C81-ADCD-F87A6709E5E3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FootBallDataTest", "FootBallData\FootBallDataTest.csproj", "{75B0B4AC-1578-4C81-ADCD-F87A6709E5E3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FootBallDataHelper", "FootBallDataHelper\FootBallDataHelper.csproj", "{5AB47595-BBBB-4876-9B66-8F218ED8AAEB}"
 EndProject
