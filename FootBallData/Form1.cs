@@ -1,4 +1,5 @@
 ﻿using FootBallDataHelper;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -27,7 +28,8 @@ namespace FootBallData
 
         private void button2_Click(object sender, EventArgs e)
         {
-            fBDHelper.HoverRows(2);
+
+            fBDHelper.HoverRows(int.Parse(textBox1.Text));
         }
 
         private void button3_Click(object sender, EventArgs e)
@@ -37,6 +39,13 @@ namespace FootBallData
             var left=fBDHelper.isOpenFloatingWindowRow(3);
             Debug.Assert(right);
             Debug.Assert(!left);
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+        {            
+            var floating=fBDHelper.GetFloatingData();
+            var json=JsonConvert.SerializeObject(floating);
+            Console.WriteLine(json);
         }
     }
 }

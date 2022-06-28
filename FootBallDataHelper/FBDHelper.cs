@@ -61,7 +61,7 @@ namespace FootBallDataHelper
         }
 
         #region 浮窗数据解析
-        public Tuple<bool,string,FloatingWin> GetData(int row)
+        public Tuple<bool,string,FloatingWin> GetFloatingData()
         {
             var data = new FloatingWin();
             var window = spider.FindElement(By.ClassName("tooltip-analysis"));
@@ -74,12 +74,77 @@ namespace FootBallDataHelper
                 data.home = names[0].Text;
                 data.away = names[1].Text;
             }
-
-
-            return new Tuple<bool, FloatingWin>(false, "unknown",data);
+            var soccerEvent = GetSoccerEvents(window);
+            if(!soccerEvent.Item1)
+            {
+                return new Tuple<bool, string, FloatingWin>(false,soccerEvent.Item2,data);
+            }
+            data.SoccerEvent = soccerEvent.Item3;
+            ComputeScore(data, soccerEvent.Item3);
+            bool havePlayerName = false;
+            foreach(var item in soccerEvent.Item3)
+            {
+                if(!string.IsNullOrEmpty(item.player1))
+                {
+                    havePlayerName = true;
+                    break;
+                }
+            }
+            if(!havePlayerName)
+            {
+                data.doubt++;
+            }
+            var TechStatistic= GetTechStatistic(window);
+            if(!TechStatistic.Item1)
+            {
+                data.doubt++;
+                return new Tuple<bool, string, FloatingWin>(false, soccerEvent.Item2, data);
+            }
+            if(TechStatistic.Item3.sum==0)
+            {
+                data.doubt++;
+            }            
+            data.technicalStatistic = TechStatistic.Item3;
+              
+            return new Tuple<bool,string ,FloatingWin>(false, "end",data);
         }
 
-        public List<SoccerEvent> GetSoccerEvents(WebElement window)
+        //计算比分 
+        public bool ComputeScore(FloatingWin data,List<SoccerEvent>soccerEvents)
+        {
+            int left = 0;
+            int right = 0;
+            soccerEvents.Reverse();
+            foreach(var e in soccerEvents)
+            {
+                if(e.position==Position.middle&&e.eventId==EventId.middle)
+                {
+                    data.half_score = left + ":" + right;
+                }
+                if(e.eventId==EventId.soccer||e.eventId==EventId.dianqiu||e.eventId==EventId.wulongqiu)
+                {
+                    if(e.position==Position.left)
+                    {
+                        left++;
+                    }
+                    else if(e.position==Position.right)
+                    {
+                        right++;
+                    }
+                    else
+                    {
+                        MessageBox.Show("ComputeScore");
+
+                        return false;
+                    }
+
+                }
+            }
+            data.score= left + ":" + right;
+            return true;
+        }
+
+        public Tuple<bool,string,List<SoccerEvent>> GetSoccerEvents(IWebElement window)
         {
             var events = new List<SoccerEvent>();
             
@@ -103,27 +168,169 @@ namespace FootBallDataHelper
                     {
                         soccerEvent.eventId = EventId.middle;
                     }
+                    else if (match.Contains("伤停补时"))
+                    {
+                        soccerEvent.eventId = EventId.injureTime;
+                    }
+                    else if (match.Contains("比赛开始"))
+                    {
+                        soccerEvent.eventId = EventId.start;
+                    }
                     else
                     {
                         MessageBox.Show("未知cte " + match);
                     }
+                    events.Add(soccerEvent);
                     continue;
                 }
                 //比赛事件行
                 var left = row.FindElement(By.ClassName("left"));
                 var right = row.FindElement(By.ClassName("right"));
-                var center=left.FindElement(By.ClassName("center")).Text;
+                var center=row.FindElement(By.ClassName("center")).Text;
+                var leftRight = left;
                 Console.WriteLine("center " + center);
                 int time = 0;
-                if(!int.TryParse(center,out time))
-                {
-
+                if(!int.TryParse(center.Replace("\'",""),out time))
+                {                    
+                    return new Tuple<bool, string, List<SoccerEvent>>(false, "time error", events);
                 }
-
-                    
+                soccerEvent.time=time;
+                if(IsElementPresent(By.ClassName("svg-icon"),left))
+                {
+                    soccerEvent.position = Position.left;
+                    leftRight = left;
+                }
+                else if (IsElementPresent(By.ClassName("svg-icon"), right))
+                {
+                    soccerEvent.position = Position.right;
+                    leftRight = right;
+                }
+                else
+                {
+                    Console.WriteLine("svg-icon");
+                    return new Tuple<bool, string, List<SoccerEvent>>(false, "svg-icon", events);
+                }
+                IWebElement use;               
+                if(!TryGetElement(By.TagName("use"), leftRight, out use))
+                {
+                    return new Tuple<bool, string, List<SoccerEvent>>(false, "get use", events);
+                }
+                var iconName = use.GetAttribute("xlink:href");
+                Console.WriteLine(iconName);
+                if(iconName.Contains("huangpai"))
+                {
+                    soccerEvent.eventId = EventId.yellow;
+                }
+                else if (iconName.Contains("hongpai"))
+                {
+                    soccerEvent.eventId = EventId.red;
+                }
+                else if (iconName.Contains("huanren"))
+                {
+                    soccerEvent.eventId = EventId.turn;
+                }
+                else if (iconName.Contains("Soccer"))
+                {
+                    soccerEvent.eventId = EventId.soccer;
+                }
+                else if (iconName.Contains("dianqiu"))
+                {
+                    soccerEvent.eventId = EventId.dianqiu;
+                }
+                else if (iconName.Contains("dianqiuweijin"))
+                {
+                    soccerEvent.eventId = EventId.dianqiuweijin;
+                }
+                else if(iconName.Contains("wulongqiu"))
+                {
+                    soccerEvent.eventId = EventId.wulongqiu;
+                }
+                else
+                {
+                    return new Tuple<bool, string, List<SoccerEvent>>(false, "known "+ iconName, events);
+                }
+               
+                if(soccerEvent.eventId== EventId.turn)
+                {
+                    var turns = leftRight.FindElements(By.ClassName("turn"));
+                    soccerEvent.player1 = turns[0].Text;
+                    soccerEvent.player2 = turns[1].Text;
+                        
+                }
+                else
+                {
+                    var span = leftRight.FindElement(By.TagName("span"));
+                    soccerEvent.player1 = span.Text;
+                }
+                events.Add(soccerEvent);
             }
 
-            return events;
+            return new Tuple<bool, string, List<SoccerEvent>>(true,"end", events);
+        }
+
+        public Tuple<bool,string,TechnicalStatistic> GetTechStatistic(IWebElement window)
+        {
+            var techStatic = new TechnicalStatistic();            
+            var rows = window.FindElements(By.ClassName("row"));
+            for(int i = 1; i < 10; i++)
+            {
+                var row = rows[rows.Count - i];
+                if(!IsElementPresent(By.ClassName("center")))
+                {
+                    return new Tuple<bool, string, TechnicalStatistic>(false, "no tech", techStatic);
+                }
+                var name = row.FindElement(By.ClassName("center")).Text;
+                Point data= GetTechRowData(row);
+                if (name=="射正")
+                {
+                    techStatic.shootRight = data;
+                }
+                else if(name=="射偏")
+                {
+                    techStatic.shotdeflection = data;
+                }
+                else if(name=="进攻")
+                {
+                    techStatic.offensive = data;
+                }
+                else if(name=="危险进攻")
+                {
+                    techStatic.dangerOffense = data;
+                }
+                else if(name=="控球率")
+                {
+                    techStatic.possessionRate = data;
+                }
+                else if(name=="角球")
+                {
+                    techStatic.corner=data;
+                }
+                else if(name== "黄牌")
+                {
+                    techStatic.yellow = data;
+                }
+                else if (name == "红牌")
+                {
+                    techStatic.red = data;
+                }
+                else if (name == "点球")
+                {
+                    techStatic.penalty = data;
+                }
+                techStatic.sum += data.left + data.right;
+            }
+            
+            return new Tuple<bool, string, TechnicalStatistic>(true, "end", techStatic);
+        }
+
+        public Point GetTechRowData(IWebElement row)
+        {
+            Point point = new Point();
+            var nums=row.FindElements(By.ClassName("num"));
+            point.left = int.Parse(nums[0].Text);
+            point.right = int.Parse(nums[1].Text);
+            return point;
+
         }
 
         #endregion
@@ -167,6 +374,21 @@ namespace FootBallDataHelper
 
             }           
         }
+        private bool TryGetElement(By by,out IWebElement webElement)
+        {
+            try
+            {
+                var result = spider.FindElement(by);
+                webElement = result;
+                return true;
+            }
+            catch (NoSuchElementException)
+            {
+                webElement = null;
+                return false;
+
+            }
+        }
         private bool IsElementPresent(By by, IWebElement webElement)
         {
             try
@@ -176,6 +398,22 @@ namespace FootBallDataHelper
             }
             catch (NoSuchElementException)
             {
+                return false;
+
+            }
+        }
+
+        private bool TryGetElement(By by,IWebElement webElement,out IWebElement aimElement)
+        {
+            try
+            {
+                var result = webElement.FindElement(by);
+                aimElement = result;
+                return true;
+            }
+            catch (NoSuchElementException)
+            {
+                aimElement = null;
                 return false;
 
             }

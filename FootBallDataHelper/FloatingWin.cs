@@ -8,13 +8,13 @@ namespace FootBallDataHelper
 {
     public class FloatingWin
     {
-        public bool doubt { get; set; }       
+        public int doubt { get; set; }       
         //队名
         public string home { get; set; }
         public string away { get; set; }
 
-        public string half_score { get; set; }
-        public string score { get; set; }
+        public string half_score = "";
+        public string score = "";
         //比赛事件
         public List<SoccerEvent> SoccerEvent { get; set; }
         //技术统计
@@ -26,9 +26,9 @@ namespace FootBallDataHelper
         public Position position { get; set; }
         public int time { get; set; }
         public EventId eventId { get; set; }
-        public string player1 { get; set; }
-        public string player2 { get; set; }
-        public bool haveEvent = false;
+        public string player1 = "";
+        public string player2 = "";
+        //public bool haveEvent = false;
     }
 
     public enum Position
@@ -39,18 +39,21 @@ namespace FootBallDataHelper
     }
     public enum EventId
     {
-        middle, //中场休息
-        over,   //比赛结束
-        yellow, //黄牌
-        red,    //红牌
-        turn,   //换人
-        soccer, //进球
-        dianqiu,//点球
-        dianqiuweijin,//点球未进
-        other, //其他
+        start=0,     //开始
+        injureTime=1,//伤停补时
+        middle=2, //中场休息
+        over=3,   //比赛结束
+        yellow=4, //黄牌
+        red=5,    //红牌
+        turn=6,   //换人
+        soccer=7, //进球
+        dianqiu=8,//点球
+        dianqiuweijin=9,//点球未进
+        wulongqiu=10,  //乌龙球
+        other=11, //其他
     }
 
-    struct Point
+    public struct Point
     {
         public int left;
         public int right;
@@ -58,15 +61,17 @@ namespace FootBallDataHelper
 
     public class TechnicalStatistic
     {
-        Point shootRight { get; set; }      //射正
-        Point shotdeflection { get; set; }  //射偏
-        Point offensive { get; set; }       //进攻
-        Point dangerOffense { get; set; }   //危险进攻
-        Point possessionRate { get; set; }  //控球率        
-        Point corner { get; set; }          //角球
-        Point yellow { get; set; }          //黄牌
-        Point red { get; set; }             //红牌
-        Point penalty { get; set; }         //点球
+        public Point shootRight { get; set; }      //射正
+        public Point shotdeflection { get; set; }  //射偏
+        public Point offensive { get; set; }       //进攻
+        public Point dangerOffense { get; set; }   //危险进攻
+        public Point possessionRate { get; set; }  //控球率        
+        public Point corner { get; set; }          //角球
+        public Point yellow { get; set; }          //黄牌
+        public Point red { get; set; }             //红牌
+        public Point penalty { get; set; }         //点球
+
+        public int sum = 0;
 
     }
    
