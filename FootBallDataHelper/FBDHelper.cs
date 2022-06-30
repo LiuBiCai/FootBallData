@@ -1,10 +1,13 @@
-﻿using OpenQA.Selenium;
+﻿using FootBallDataHelper.DBHlper;
+using Newtonsoft.Json;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Interactions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,19 +16,16 @@ namespace FootBallDataHelper
 {
     public class FBDHelper
     {
-        IWebDriver spider { get; set; }
-        
+        IWebDriver spider = new ChromeDriver();
+
         //打开指定日期的完成比赛
         //https://live.leisu.com/wanchang-20220622
         string wanchengUrl = "https://live.leisu.com/wanchang-";
         public bool OpenTimeFinishPage(string time)
-        {
-            spider = new ChromeDriver();
+        {           
             spider.Navigate().GoToUrl(wanchengUrl+time);
             return true;
         }
-
-        
 
         //将鼠标悬浮在指定行的比分处
         public bool HoverRows(int row)
@@ -41,6 +41,7 @@ namespace FootBallDataHelper
             action.Perform();
             return true;
         }
+
         #region 浮窗
         //判断指定行的浮窗是否开启
         public bool isOpenFloatingWindowRow(int row)
@@ -51,7 +52,6 @@ namespace FootBallDataHelper
             {
                 return false;
             }
-
             //悬浮窗口是否打开 可根据class=tooltip-analysis判断
             if (IsElementPresentWithTime(By.ClassName("tooltip-analysis"), rows[row]))
             {
@@ -59,14 +59,36 @@ namespace FootBallDataHelper
             }
             return false;
         }
+        #region 获取联赛名 ID
+        public Tuple<bool,string,int> GeteventName(int row)
+        {
+            var events = spider.FindElements(By.ClassName("event-name"));
+            var name=  events[row].Text;
+            if(string.IsNullOrEmpty(name))
+            {
+                return Tuple.Create(false, "name is null", 0);
+            }
+            var url = events[row].GetAttribute("href");
+            if(string.IsNullOrEmpty(url))
+            {
+                return Tuple.Create(true, name, 0);
+            }
+            var id = url.Split('-')[1] ;//comp-24" target
+            if(string.IsNullOrEmpty(id))
+            {
+                return Tuple.Create(false, "id is null", 0);
+            }
+            return new Tuple<bool, string, int>(true,name,int.Parse(id));
+        }
 
+
+        #endregion
         #region 浮窗数据解析
         public Tuple<bool,string,FloatingWin> GetFloatingData()
         {
             var data = new FloatingWin();
+
             var window = spider.FindElement(By.ClassName("tooltip-analysis"));
-
-
             //获取队名
             var names = window.FindElements(By.ClassName("name"));
             if(names.Count>1)
@@ -79,11 +101,16 @@ namespace FootBallDataHelper
             {
                 return new Tuple<bool, string, FloatingWin>(false,soccerEvent.Item2,data);
             }
-            data.SoccerEvent = soccerEvent.Item3;
+            data.SoccerEvent = soccerEvent.Item3;            
             ComputeScore(data, soccerEvent.Item3);
             bool havePlayerName = false;
             foreach(var item in soccerEvent.Item3)
             {
+                if(item.eventId==EventId.other)
+                {
+                    data.doubt = 10;
+                }
+
                 if(!string.IsNullOrEmpty(item.player1))
                 {
                     havePlayerName = true;
@@ -121,6 +148,11 @@ namespace FootBallDataHelper
                 {
                     data.half_score = left + ":" + right;
                 }
+                if(e.time>47&& data.half_score == "")
+                {
+                    data.half_score = left + ":" + right;
+                }
+
                 if(e.eventId==EventId.soccer||e.eventId==EventId.dianqiu||e.eventId==EventId.wulongqiu)
                 {
                     if(e.position==Position.left)
@@ -139,6 +171,10 @@ namespace FootBallDataHelper
                     }
 
                 }
+            }
+            if(data.half_score=="")
+            {
+                data.half_score = left + ":" + right;
             }
             data.score= left + ":" + right;
             return true;
@@ -175,10 +211,11 @@ namespace FootBallDataHelper
                     else if (match.Contains("比赛开始"))
                     {
                         soccerEvent.eventId = EventId.start;
-                    }
-                    else
-                    {
-                        MessageBox.Show("未知cte " + match);
+                    }        
+                    else 
+                    {                        
+                        soccerEvent.eventId = EventId.other;
+                        events.Add(soccerEvent);
                     }
                     events.Add(soccerEvent);
                     continue;
@@ -233,20 +270,29 @@ namespace FootBallDataHelper
                 {
                     soccerEvent.eventId = EventId.soccer;
                 }
-                else if (iconName.Contains("dianqiu"))
-                {
-                    soccerEvent.eventId = EventId.dianqiu;
-                }
                 else if (iconName.Contains("dianqiuweijin"))
                 {
                     soccerEvent.eventId = EventId.dianqiuweijin;
                 }
+                else if (iconName.Contains("dianqiu"))
+                {
+                    soccerEvent.eventId = EventId.dianqiu;
+                }                
                 else if(iconName.Contains("wulongqiu"))
                 {
                     soccerEvent.eventId = EventId.wulongqiu;
                 }
+                else if (iconName.Contains("lianghuangyihongbeifen"))
+                {
+                    soccerEvent.eventId = EventId.lianghuangyihongbeifen;
+                }
+                else if (iconName.Contains("VAR"))
+                {
+                    soccerEvent.eventId = EventId.var;
+                }
                 else
                 {
+                    MessageBox.Show(iconName);
                     return new Tuple<bool, string, List<SoccerEvent>>(false, "known "+ iconName, events);
                 }
                
@@ -275,11 +321,13 @@ namespace FootBallDataHelper
             for(int i = 1; i < 10; i++)
             {
                 var row = rows[rows.Count - i];
-                if(!IsElementPresent(By.ClassName("center")))
+                if(!IsElementPresent(By.ClassName("center"),row))
                 {
                     return new Tuple<bool, string, TechnicalStatistic>(false, "no tech", techStatic);
                 }
+
                 var name = row.FindElement(By.ClassName("center")).Text;
+
                 Point data= GetTechRowData(row);
                 if (name=="射正")
                 {
@@ -333,7 +381,138 @@ namespace FootBallDataHelper
 
         }
 
+        public int GetDetailID(int row)
+        {
+            //通过F12分析lier-score可唯一标识浮窗结构
+            var rows = spider.FindElements(By.ClassName("lier-score"));
+            if (row >= rows.Count())
+            {
+                return 0;
+            }
+            var id=rows[row].GetAttribute("id");
+            string fid = id.Replace("score", "");
+            return int.Parse(fid);
+        }
+
         #endregion
+
+
+
+        #endregion
+
+        #region 数据库 操作
+
+        public Tuple<bool,string> StoreData(string date,string events,int eventId,int detailId ,FloatingWin floating)
+        {
+            try
+            {
+                Model.init_data data = new Model.init_data();
+                data.date = date;
+                data.detail_id = detailId;
+                data.events = events;
+                data.event_id=eventId;
+                data.home = floating.home;
+                data.away = floating.away;
+                data.half_score = floating.half_score;
+                data.score = floating.score;
+                data.doubt = floating.doubt;
+                data.source_data = JsonConvert.SerializeObject(floating.SoccerEvent);
+                data.techical_data = JsonConvert.SerializeObject(floating.technicalStatistic);
+                var soccer = BllSoccer.Select(detailId);
+                if(soccer==null)
+                {
+                    BllSoccer.Insert(data);
+                }
+                else
+                {
+                    data.id = soccer.id;
+                    BllSoccer.Update(data);
+                }
+                return new Tuple<bool, string>(true, "success");
+               
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return new Tuple<bool, string>(false, "failed");
+            }
+            
+        }
+
+        public Tuple<bool,string> HaveData(int detailId)
+        {
+            if(detailId==0)
+            {
+                return new Tuple<bool, string>(false, "detaiId is 0");
+            }
+            var soccer = BllSoccer.Select(detailId);
+            if (soccer != null)
+            {
+                return new Tuple<bool, string>(true, "success");
+            }
+            return new Tuple<bool, string>(false, "no data");
+        }
+
+        public Tuple<bool,string> StoreData()
+        {
+            string date = "20220626";
+            DateTime dateTime = DateTime.ParseExact("20220627", "yyyyMMdd",System.Globalization.CultureInfo.InvariantCulture);
+
+            do
+            {
+                dateTime = dateTime.AddDays(-1);
+                
+                date = dateTime.ToString("yyyyMMdd");
+                
+                OpenTimeFinishPage(date);
+                Thread.Sleep(3000);
+                
+                try
+                {
+                    var rows = spider.FindElements(By.ClassName("qcbf"));
+                    for (int row = 0; row < rows.Count; row++)
+                    {
+                        var detailId = GetDetailID(row);
+                        var soccer = BllSoccer.Select(detailId);
+                        if (soccer != null)
+                        {
+                            continue;
+                        }
+
+                        var eventname = GeteventName(row).Item2;
+                        var eventid = GeteventName(row).Item3;
+                        int hoverCount = 0;
+                        do
+                        {
+                            HoverRows(row);
+                            Thread.Sleep(500);
+                            if (hoverCount++ > 3)
+                            {
+                                FloatingWin floatingWin = new FloatingWin();
+                                floatingWin.doubt = 10;
+                                StoreData(date, eventname, eventid, detailId, floatingWin);
+                                break;
+                            }
+                        }
+                        while (!isOpenFloatingWindowRow(row));
+                        if (hoverCount > 3)
+                        {
+                            continue;
+                        }
+                        var floating = GetFloatingData();
+                        StoreData(date, eventname, eventid, detailId, floating.Item3);
+                    }
+                }
+                catch
+                {
+                    dateTime = dateTime.AddDays(1);
+                    continue;
+                }
+            }
+            while (true);
+          
+            return new Tuple<bool, string>(true, "success");
+        }
 
 
         #endregion
@@ -439,6 +618,12 @@ namespace FootBallDataHelper
 
             }
             return false;
+        }
+        public string Match(string strSource, string pattern)
+        {
+            var m = Regex.Match(strSource, pattern, RegexOptions.None);
+
+            return m.Success ? m.Groups[1].Value : null;
         }
         #endregion
 

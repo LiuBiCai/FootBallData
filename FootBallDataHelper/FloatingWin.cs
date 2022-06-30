@@ -7,13 +7,14 @@ using System.Threading.Tasks;
 namespace FootBallDataHelper
 {
     public class FloatingWin
-    {
+    {      
         public int doubt { get; set; }       
         //队名
         public string home { get; set; }
         public string away { get; set; }
 
         public string half_score = "";
+        
         public string score = "";
         //比赛事件
         public List<SoccerEvent> SoccerEvent { get; set; }
@@ -50,7 +51,9 @@ namespace FootBallDataHelper
         dianqiu=8,//点球
         dianqiuweijin=9,//点球未进
         wulongqiu=10,  //乌龙球
-        other=11, //其他
+        lianghuangyihongbeifen=11,//亮黄一红备份
+        var=12, //VAR
+        other=100, //其他
     }
 
     public struct Point
